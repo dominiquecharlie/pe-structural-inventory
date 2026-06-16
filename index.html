@@ -732,7 +732,7 @@ footer {
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v8M4 6l3 3 3-3M2 11h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
           Download your inventory
         </button>
-        <div class="download-note">Plain text · Takes into your next meeting</div>
+        <div class="download-note">Opens print dialog · Save as PDF</div>
       </div>
 
     </div>
@@ -1045,42 +1045,454 @@ function downloadAudit() {
     if (hasGap(i)) gapCount++;
   });
 
-  let text = 'PARTICIPATORY EVALUATION STRUCTURAL INVENTORY\n';
-  if (org) text += org + '\n';
-  text += date + '\n';
-  text += '─'.repeat(52) + '\n\n';
+  // ── Badge HTML helper ──────────────────────────────────────────────────────
+  function badgeHtml(rating, axis) {
+    const label = axis.charAt(0).toUpperCase() + axis.slice(1) + ': ' + (rating || 'Not rated');
+    if (!rating) return `<span class="badge unrated">${label}</span>`;
+    const cls = rating === 'Strong' ? 'strong' : rating === 'Developing' ? 'developing' : 'not-yet';
+    return `<span class="badge ${cls}">${label}</span>`;
+  }
 
-  text += 'SUMMARY\n\n';
-  text += 'VALUES\n';
-  text += `  Strong: ${valStrong}  |  Developing: ${valDev}  |  Not yet: ${valNot}\n\n`;
-  text += 'STRUCTURES\n';
-  text += `  Strong: ${strStrong}  |  Developing: ${strDev}  |  Not yet: ${strNot}\n\n`;
-  text += `KNOWN STRUCTURAL FRICTIONS: ${gapCount} dimension${gapCount !== 1 ? 's' : ''} where inherited structures pull against the values your organization is working toward.\n\n`;
-  text += '─'.repeat(52) + '\n\n';
+  // ── Score box HTML helper ──────────────────────────────────────────────────
+  function scoreBoxHtml(num, label, cls) {
+    return `<div class="score-box ${cls}"><div class="score-num">${num}</div><div class="score-lbl">${label}</div></div>`;
+  }
 
-  text += 'DIMENSION-BY-DIMENSION INVENTORY\n\n';
+  // ── Dimension pages ────────────────────────────────────────────────────────
+  let dimPages = '';
   DIMENSIONS.forEach((d, i) => {
     const r = ratings[i];
     const notes = document.getElementById('notes-' + i).value.trim();
-    const gap = hasGap(i);
-    text += `Dimension ${i+1}: ${d.title}\n`;
-    text += `  Values: ${r.values || 'Not rated'}\n`;
-    text += `  Structures: ${r.structures || 'Not rated'}\n`;
-    if (gap) text += `\n  This is a known tension: ${d.gap}\n`;
-    text += `\n  Reflection prompt: ${d.reflect}\n`;
-    if (notes) text += `\n  Notes: ${notes}\n`;
-    text += '\n' + '─'.repeat(52) + '\n\n';
+    const friction = hasGap(i);
+
+    const frictionHtml = friction ? `
+      <div class="friction-callout">
+        KNOWN STRUCTURAL FRICTION — Values ahead of structures.
+      </div>` : '';
+
+    const notesHtml = notes
+      ? `<p class="notes-text">${notes}</p>`
+      : `<p class="notes-empty">No notes recorded.</p>`;
+
+    const isLast = i === DIMENSIONS.length - 1;
+
+    dimPages += `
+      <div class="dim-page${isLast ? ' last-page' : ''}">
+        <div class="dim-eyebrow">DIMENSION ${i+1}</div>
+        <div class="dim-title">${d.title}</div>
+        <hr class="dim-rule">
+        <p class="definition">${d.intro}</p>
+
+        <div class="badge-row">
+          ${badgeHtml(r.values, 'values')}
+          ${badgeHtml(r.structures, 'structures')}
+        </div>
+
+        ${frictionHtml}
+
+        <div class="callout blue-callout">
+          <div class="callout-label">STRUCTURAL EXAMPLE</div>
+          <p class="callout-text">${d.strQ} ${d.strExample}</p>
+        </div>
+
+        <div class="callout amber-callout">
+          <div class="callout-label">KNOWN TENSION</div>
+          <p class="callout-text">${d.gap}</p>
+        </div>
+
+        <div class="notes-label">NOTES</div>
+        ${notesHtml}
+
+        ${isLast ? `<div class="doc-footer">Developed by Dominique Charlie Oquendo / MAYA · 2026</div>` : ''}
+      </div>`;
   });
 
-  text += 'Developed by Dominique Charlie Oquendo / MAYA · 2026\n';
+  // ── Full HTML document ─────────────────────────────────────────────────────
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PE Structural Inventory${org ? ' — ' + org : ''}</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  const blob = new Blob([text], { type: 'text/plain' });
+  :root {
+    --navy: #1C3A5E;
+    --blue: #4A7FA5;
+    --blue-light: #D6E8F2;
+    --off-white: #F7F6F3;
+    --charcoal: #2C2C2C;
+    --gap-text: #4A3728;
+    --gap-bg: #F5EDE6;
+    --gap-border: #C9A98A;
+    --strong-bg: #EAF1F8;
+    --strong-bd: #b0cfe0;
+    --dev-bg: #fdf5e8;
+    --dev-bd: #f0d99a;
+    --not-bg: #fdf1f0;
+    --not-bd: #f5c0bc;
+    --nude-red-bg: #F9EDEC;
+    --nude-red-bd: #E8B4B0;
+    --nude-red-txt: #7a3530;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    color: var(--charcoal);
+    background: white;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ── COVER PAGE ── */
+  .cover-page {
+    width: 100%;
+    height: 100vh;
+    background: var(--navy);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 72px;
+    page-break-after: always;
+  }
+
+  .cover-inner {
+    width: 100%;
+    max-width: 520px;
+    text-align: center;
+  }
+
+  .cover-title {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 38px;
+    color: white;
+    line-height: 1.2;
+    font-weight: 400;
+    margin-bottom: 18px;
+  }
+
+  .cover-subtitle {
+    font-size: 9px;
+    color: #7aaecf;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    margin-bottom: 28px;
+  }
+
+  .cover-org {
+    font-size: 15px;
+    font-weight: 600;
+    color: white;
+    margin-bottom: 6px;
+  }
+
+  .cover-date {
+    font-size: 11px;
+    color: #7aaecf;
+    margin-bottom: 40px;
+  }
+
+  .cover-rule {
+    border: none;
+    border-top: 1px solid #2a5280;
+    margin-bottom: 32px;
+  }
+
+  /* ── SCORE CARD ── */
+  .score-card {
+    background: #243f5c;
+    border: 1px solid #2e5478;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 16px;
+    text-align: left;
+  }
+
+  .score-card-label {
+    font-size: 8px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: #7aaecf;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+
+  .score-boxes {
+    display: flex;
+    gap: 10px;
+  }
+
+  .score-box {
+    flex: 1;
+    border-radius: 8px;
+    padding: 12px 8px;
+    text-align: center;
+    border: 1px solid transparent;
+  }
+
+  .score-box.strong { background: var(--strong-bg); border-color: var(--strong-bd); }
+  .score-box.developing { background: var(--dev-bg); border-color: var(--dev-bd); }
+  .score-box.not-yet { background: var(--not-bg); border-color: var(--not-bd); }
+
+  .score-num {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 30px;
+    line-height: 1;
+    margin-bottom: 5px;
+  }
+  .score-box.strong .score-num { color: var(--navy); }
+  .score-box.developing .score-num { color: #8a5200; }
+  .score-box.not-yet .score-num { color: #7a1a1a; }
+
+  .score-lbl {
+    font-size: 7px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #888;
+  }
+
+  /* ── GAP CALLOUT ON COVER ── */
+  .cover-gap {
+    background: #1a3350;
+    border: 1px solid var(--gap-border);
+    border-left: 3px solid var(--gap-border);
+    border-radius: 0 6px 6px 0;
+    padding: 12px 16px;
+    text-align: left;
+  }
+
+  .cover-gap-label {
+    font-size: 8px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--gap-border);
+    font-weight: 600;
+    margin-bottom: 5px;
+  }
+
+  .cover-gap-text {
+    font-size: 11px;
+    color: #e8d5c4;
+    font-style: italic;
+    line-height: 1.6;
+  }
+
+  /* ── DIMENSION PAGES ── */
+  .dim-page {
+    padding: 52px 72px 40px;
+    page-break-before: always;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .dim-eyebrow {
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--blue);
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .dim-title {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 24px;
+    color: var(--charcoal);
+    line-height: 1.3;
+    font-weight: 400;
+    margin-bottom: 16px;
+  }
+
+  .dim-rule {
+    border: none;
+    border-top: 1px solid #e0dbd4;
+    margin-bottom: 18px;
+  }
+
+  .definition {
+    font-size: 12px;
+    color: #555;
+    line-height: 1.75;
+    margin-bottom: 20px;
+  }
+
+  /* ── BADGES ── */
+  .badge-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    font-size: 11px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-weight: 500;
+    border: 1px solid transparent;
+  }
+
+  .badge.strong { background: var(--strong-bg); color: var(--navy); border-color: var(--strong-bd); }
+  .badge.developing { background: var(--dev-bg); color: #8a5200; border-color: var(--dev-bd); }
+  .badge.not-yet { background: var(--not-bg); color: #7a1a1a; border-color: var(--not-bd); }
+  .badge.unrated { background: #f0f0f0; color: #aaa; border-color: #ddd; }
+
+  /* ── FRICTION CALLOUT ── */
+  .friction-callout {
+    background: var(--nude-red-bg);
+    border: 1px solid var(--nude-red-bd);
+    border-radius: 6px;
+    padding: 9px 14px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--nude-red-txt);
+    margin-bottom: 14px;
+    letter-spacing: 0.3px;
+  }
+
+  /* ── CALLOUTS ── */
+  .callout {
+    border-left: 3px solid transparent;
+    border-radius: 0 8px 8px 0;
+    padding: 13px 16px;
+    margin-bottom: 14px;
+  }
+
+  .blue-callout {
+    background: var(--strong-bg);
+    border-left-color: var(--blue);
+  }
+
+  .amber-callout {
+    background: var(--gap-bg);
+    border-left-color: var(--gap-border);
+  }
+
+  .callout-label {
+    font-size: 8px;
+    letter-spacing: 2px;
+    font-weight: 600;
+    margin-bottom: 5px;
+  }
+
+  .blue-callout .callout-label { color: var(--blue); }
+  .amber-callout .callout-label { color: var(--gap-border); }
+
+  .callout-text {
+    font-size: 11px;
+    line-height: 1.7;
+    font-style: italic;
+  }
+
+  .blue-callout .callout-text { color: #444; }
+  .amber-callout .callout-text { color: var(--gap-text); }
+
+  /* ── NOTES ── */
+  .notes-label {
+    font-size: 8px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #bbb;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .notes-text {
+    font-size: 11px;
+    color: #555;
+    font-style: italic;
+    line-height: 1.7;
+  }
+
+  .notes-empty {
+    font-size: 11px;
+    color: #bbb;
+    font-style: italic;
+  }
+
+  /* ── FOOTER ── */
+  .doc-footer {
+    margin-top: auto;
+    padding-top: 24px;
+    border-top: 1px solid #e0dbd4;
+    font-size: 10px;
+    color: #bbb;
+    letter-spacing: 1px;
+    text-align: center;
+  }
+
+  /* ── PRINT SETTINGS ── */
+  @page {
+    size: letter;
+    margin: 0;
+  }
+
+  @media print {
+    body { background: white; }
+    .cover-page { height: 100vh; }
+    .dim-page { min-height: 100vh; }
+  }
+</style>
+</head>
+<body>
+
+<!-- COVER PAGE -->
+<div class="cover-page">
+  <div class="cover-inner">
+    <div class="cover-title">Participatory Evaluation<br>Structural Inventory</div>
+    <div class="cover-subtitle">Participatory Evaluation &amp; Grantmaking</div>
+    <div class="cover-org">${org || 'Structural Inventory'}</div>
+    <div class="cover-date">${date}</div>
+    <hr class="cover-rule">
+
+    <div class="score-card">
+      <div class="score-card-label">Values</div>
+      <div class="score-boxes">
+        ${scoreBoxHtml(valStrong, 'Strong', 'strong')}
+        ${scoreBoxHtml(valDev, 'Developing', 'developing')}
+        ${scoreBoxHtml(valNot, 'Not yet', 'not-yet')}
+      </div>
+    </div>
+
+    <div class="score-card">
+      <div class="score-card-label">Structures</div>
+      <div class="score-boxes">
+        ${scoreBoxHtml(strStrong, 'Strong', 'strong')}
+        ${scoreBoxHtml(strDev, 'Developing', 'developing')}
+        ${scoreBoxHtml(strNot, 'Not yet', 'not-yet')}
+      </div>
+    </div>
+
+    <div class="cover-gap">
+      <div class="cover-gap-label">Known Structural Frictions</div>
+      <div class="cover-gap-text">${gapCount} dimension${gapCount !== 1 ? 's' : ''} where inherited structures pull against the values your organization is working toward.</div>
+    </div>
+  </div>
+</div>
+
+<!-- DIMENSION PAGES -->
+${dimPages}
+
+<script>
+  // Auto-trigger print dialog once fonts have loaded
+  document.fonts.ready.then(() => window.print());
+<\/script>
+</body>
+</html>`;
+
+  const blob = new Blob([html], { type: 'text/html' });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'PE-Structural-Inventory-' + date.replace(/,? /g, '-') + '.txt';
-  a.click();
-  URL.revokeObjectURL(url);
+  const win = window.open(url, '_blank');
+  if (!win) {
+    // Fallback if popup blocked — direct download of the HTML
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'PE-Structural-Inventory-' + date.replace(/,? /g, '-') + '.html';
+    a.click();
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 </script>
 </body>
